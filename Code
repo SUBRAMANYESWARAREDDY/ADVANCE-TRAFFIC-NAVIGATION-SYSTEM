@@ -1,0 +1,191 @@
+#define BLYNK_TEMPLATE_ID "TMPLNMeFNlES"
+#define BLYNK_TEMPLATE_NAME "potholes"
+#define BLYNK_AUTH_TOKEN "-lc-2TMHmeUZIXP-j2VJd4DJNV63DHse"
+
+#define BLYNK_PRINT Serial
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+
+#include <TinyGPS++.h>
+
+TinyGPSPlus gps;
+
+
+static const uint32_t GPSBaud = 9600;
+
+float latitude;
+float longitude;
+
+#define echoPin1 2
+#define trigPin1 15
+#define echoPin2 23
+#define trigPin2 22 
+
+long duration;
+float distance; 
+
+#define IN_1 5
+#define IN_2 18
+#define IN_3 19
+#define IN_4 21
+
+char auth[]="o1UHSb8NIhNKG6z9GZyO9K8ZlC4MZbnk";
+
+char ssid[] = "Draj";
+char pass[] = "no i wont tell";
+
+int obstacle(int trigPinx, int echoPinx) {
+  digitalWrite(trigPinx, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPinx, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPinx, LOW);
+
+  duration = pulseIn(echoPinx, HIGH);
+
+  distance = duration * 0.034 / 2;
+  return distance;
+}
+
+
+void goRight(){ 
+      digitalWrite(IN_1, HIGH);
+      digitalWrite(IN_2, LOW);
+      digitalWrite(IN_3, HIGH);
+      digitalWrite(IN_4, LOW);
+  }
+
+void goLeft(){ 
+      digitalWrite(IN_1, LOW);
+      digitalWrite(IN_2, HIGH);
+      digitalWrite(IN_3, LOW);
+      digitalWrite(IN_4, HIGH);
+  }
+
+void goForword(){ 
+      digitalWrite(IN_1, HIGH);
+      digitalWrite(IN_2, LOW);
+      digitalWrite(IN_3, LOW);
+      digitalWrite(IN_4, HIGH);
+  }
+
+void goBack(){
+      digitalWrite(IN_1, LOW);
+      digitalWrite(IN_2, HIGH);
+      digitalWrite(IN_3, HIGH);
+      digitalWrite(IN_4, LOW);
+  }
+
+void hold(){  
+      digitalWrite(IN_1, LOW);
+      digitalWrite(IN_2, LOW);
+      digitalWrite(IN_3, LOW);
+      digitalWrite(IN_4, LOW);
+ }
+
+BLYNK_WRITE(V6)
+{
+  int pinValue1 = param.asInt();
+  if (pinValue1 == 1){goForword();
+  Serial.print("F");}
+  else hold();
+}
+
+BLYNK_WRITE(V7)
+{
+  int pinValue2 = param.asInt();
+  if (pinValue2 == 1){goBack();
+  Serial.print("B");}
+  else hold();
+}
+
+BLYNK_WRITE(V8)
+{
+  int pinValue3 = param.asInt();
+  if (pinValue3 == 1){goLeft();
+  Serial.print("L");}
+  else hold();
+}
+
+BLYNK_WRITE(V9) 
+{
+  int pinValue4 = param.asInt();
+  if (pinValue4 == 1){goRight();
+  Serial.print("R");}
+  else hold();
+}
+
+void setup() 
+{
+  Serial.begin(9600);   // Initiate a serial communication
+  Serial.begin(GPSBaud);
+  
+  Blynk.begin(auth, ssid, pass, "blynk.cloud", 80);
+  
+  pinMode(trigPin1, OUTPUT);
+  pinMode(echoPin1, INPUT);
+ 
+  pinMode(trigPin2, OUTPUT);
+  pinMode(echoPin2, INPUT);
+
+  pinMode(IN_1, OUTPUT);
+  pinMode(IN_2, OUTPUT);
+  pinMode(IN_3, OUTPUT);
+  pinMode(IN_4, OUTPUT);
+}  
+
+void GPS()
+{
+if (gps.charsProcessed() < 10)
+  {
+    //Serial.println("No GPS detected: check wiring.");
+     // Blynk.virtualWrite(V4, "GPS ERROR");         // Value Display widget  on V4 if GPS not detected
+  }
+}
+void displaygpsInfo()
+{ 
+
+  if (gps.location.isValid() ) 
+  {
+    
+     latitude = (gps.location.lat());      //Storing the Lat. and Lon. 
+     longitude = (gps.location.lng()); 
+    
+    Serial.print("LAT:  ");
+    Serial.println(latitude, 6);                // float to x decimal places
+    Serial.print("LONG: ");
+    Serial.println(longitude, 6); 
+           
+      }
+}
+
+void loop()
+{
+	while (Serial.available() > 0) 
+    {
+      // sketch displays information every time a new sentence is correctly encoded.
+      if (gps.encode(Serial.read()))
+        displaygpsInfo();
+  }
+
+  Blynk.run();
+  int dist1 = obstacle(trigPin1,echoPin1);
+  int dist2 = obstacle(trigPin2,echoPin2);
+
+  Serial.print(dist1);
+  Serial.print("\t");
+  Serial.println(dist2);
+String  long_lat = String(float(latitude))+", "+String(float(longitude));
+  String hump = "Hump Detected " + long_lat;
+  String pothole = "Pothole Detected " + long_lat;
+  if (dist1 < 3){
+    Blynk.virtualWrite(V10,hump);
+  }
+  if (dist2 > 6){
+    Blynk.virtualWrite(V10,pothole);
+  }
+  else{
+    Blynk.virtualWrite(V10,"          ");
+ }
